@@ -1,0 +1,19 @@
+{
+  "name": "trae-4",
+  "version": "1.0.0",
+  "description": "这是一个基于火山方舟DeepSeek R1 API开发的个人成长助手网站。通过与AI进行对话，获取建议和指导，帮助用户在生活中不断成长。",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "node-fetch": "^2.6.9"
+  }
+}

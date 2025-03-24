@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepSeek R1 个人成长助手</title>
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+    <!-- 顶部标题区 -->
+    <header class="header">
+        <h1>DeepSeek R1 个人成长助手</h1>
+        <p>你的AI生活教练，助你不断成长</p>
+    </header>
+
+    <!-- 主要对话区域 -->
+    <main class="chat-container">
+        <!-- 对话历史记录区 -->
+        <div class="chat-history" id="chatHistory">
+            <!-- 示例消息 -->
+            <div class="message ai-message">
+                <div class="message-content">
+                    你好！我是你的AI生活教练。我会通过对话了解你，给你合适的建议，帮助你成长。让我们开始吧！
+                </div>
+            </div>
+        </div>
+
+        <!-- 输入区域 -->
+        <div class="input-area">
+            <textarea id="userInput" placeholder="输入你想说的话..."></textarea>
+            <button id="sendButton">发送</button>
+        </div>
+    </main>
+
+    <!-- 设置面板 -->
+    <aside class="settings-panel">
+        <h2>设置</h2>
+        <div class="setting-item">
+            <label for="temperature">温度 (0.1-1.0):</label>
+            <input type="range" id="temperature" min="0.1" max="1.0" step="0.1" value="0.6">
+            <span id="temperatureValue">0.6</span>
+        </div>
+    </aside>
+
+    <script>
+        // 获取DOM元素
+        const chatHistory = document.getElementById('chatHistory');
+        const userInput = document.getElementById('userInput');
+        const sendButton = document.getElementById('sendButton');
+        const temperatureSlider = document.getElementById('temperature');
+        const temperatureValue = document.getElementById('temperatureValue');
+
+        // 更新温度值显示
+        temperatureSlider.addEventListener('input', (e) => {
+            temperatureValue.textContent = e.target.value;
+        });
+
+        // 发送消息
+        async function sendMessage() {
+            const message = userInput.value.trim();
+            if (!message) return;
+
+            // 添加用户消息到对话历史
+            addMessage(message, 'user');
+            userInput.value = '';
+
+            try {
+                // 发送API请求
+                const response = await fetch('http://localhost:3000/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message,
+                        temperature: parseFloat(temperatureSlider.value)
+                    })
+                });
+
+                if (!response.ok) throw new Error('API请求失败');
+
+                // 处理流式响应
+                const messageElement = addMessage('', 'ai');
+                let aiMessage = '';
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6);
+                            if (data === '[DONE]') continue;
+                            try {
+                                const jsonData = JSON.parse(data);
+                                if (jsonData.choices && jsonData.choices[0] && jsonData.choices[0].delta && jsonData.choices[0].delta.content) {
+                                    aiMessage += jsonData.choices[0].delta.content;
+                                    messageElement.querySelector('.message-content').textContent = aiMessage;
+                                }
+                            } catch (e) {
+                                console.error('解析JSON失败:', e);
+                            }
+                            chatHistory.scrollTop = chatHistory.scrollHeight;
+                        }
+                    }
+                }
+
+                reader.releaseLock();
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage('抱歉，发生了错误，请稍后重试。', 'ai');
+            }
+        }
+
+        // 添加消息到对话历史
+        function addMessage(content, type) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}-message`;
+            messageDiv.innerHTML = `<div class="message-content">${content}</div>`;
+            chatHistory.appendChild(messageDiv);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+            return messageDiv;
+        }
+
+        // 事件监听器
+        sendButton.addEventListener('click', sendMessage);
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
