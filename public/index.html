@@ -65,7 +65,10 @@
             userInput.value = '';
 
             try {
-                // 发送API请求
+                // 处理流式响应
+                const messageElement = addMessage('', 'ai');
+                let aiMessage = '';
+
                 const response = await fetch('http://localhost:3000/chat', {
                     method: 'POST',
                     headers: {
@@ -78,10 +81,6 @@
                 });
 
                 if (!response.ok) throw new Error('API请求失败');
-
-                // 处理流式响应
-                const messageElement = addMessage('', 'ai');
-                let aiMessage = '';
 
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
@@ -102,11 +101,11 @@
                                 if (jsonData.choices && jsonData.choices[0] && jsonData.choices[0].delta && jsonData.choices[0].delta.content) {
                                     aiMessage += jsonData.choices[0].delta.content;
                                     messageElement.querySelector('.message-content').textContent = aiMessage;
+                                    chatHistory.scrollTop = chatHistory.scrollHeight;
                                 }
                             } catch (e) {
                                 console.error('解析JSON失败:', e);
                             }
-                            chatHistory.scrollTop = chatHistory.scrollHeight;
                         }
                     }
                 }

@@ -61,23 +61,33 @@ app.post('/chat', async (req, res) => {
 
         // 处理流式响应 - 使用SSE格式
         const timeout = setTimeout(() => {
-            res.write('event: done\ndata: \n\n');
+            res.write('data: [DONE]\n\n');
             res.end();
         }, 60000);
 
         // 使用node-fetch支持的方式处理流式数据
-        response.body.on('data', (chunk) => {
-            // 将二进制数据转换为文本并解析JSON数据
-            const text = chunk.toString();
-            try {
-                const jsonData = JSON.parse(text);
-                if (jsonData.choices && jsonData.choices[0] && jsonData.choices[0].delta && jsonData.choices[0].delta.content) {
-                    res.write(`data: ${jsonData.choices[0].delta.content}\n\n`);
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        for await (const chunk of response.body) {
+            buffer += decoder.decode(chunk, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+                if (line.trim() && line.startsWith('data: ')) {
+                    try {
+                        const jsonData = JSON.parse(line.slice(6));
+                        if (jsonData.choices && jsonData.choices[0] && jsonData.choices[0].delta && jsonData.choices[0].delta.content) {
+                            const content = jsonData.choices[0].delta.content;
+                            res.write(`data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`);
+                        }
+                    } catch (e) {
+                        console.error('解析JSON失败:', e);
+                    }
                 }
-            } catch (e) {
-                console.error('解析JSON失败:', e);
             }
-        });
+        }
 
         response.body.on('end', () => {
             clearTimeout(timeout);
